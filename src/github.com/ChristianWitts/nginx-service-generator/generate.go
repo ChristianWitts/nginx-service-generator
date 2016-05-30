@@ -38,6 +38,9 @@ func main() {
 	flag.StringVar(&serviceRoot, "service-root", "/", "The root path with your service metadata")
 	flag.Parse()
 
+	sitesAvailable := fmt.Sprintf("%s/sites-available/", nginxRoot)
+	sitesEnabled := fmt.Sprintf("%s/sites-enabled/", nginxRoot)
+
 	c, _, err := zk.Connect([]string{zookeeperNodes}, time.Second)
 	check(err)
 
@@ -63,7 +66,7 @@ func main() {
 
 		fmt.Printf("%+v\n", upstreamEndpoints)
 
-		f, err := os.Create(fmt.Sprintf("%s/%s.service", nginxRoot, child))
+		f, err := os.Create(fmt.Sprintf("%s/%s.service", sitesAvailable, child))
 		check(err)
 		defer f.Close()
 
@@ -73,6 +76,9 @@ func main() {
 		}
 
 		t.Execute(f, data)
+
+		os.Symlink(fmt.Sprintf("%s/%s.service", sitesAvailable, child),
+			fmt.Sprintf("%s/%s.service", sitesEnabled, child))
 	}
 
 }
