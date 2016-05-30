@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"os"
@@ -27,7 +28,28 @@ var (
 	renderedTemplate bytes.Buffer
 	sitesAvailable   string
 	sitesEnabled     string
-	hashes           [string]string
+	hashes           = make(map[string]string)
+)
+
+const (
+	defaultService = `upstream {{.Service}} {
+    {{range .UpstreamEndpoints}}server {{.}};{{end}}
+}
+
+server {
+    listen 8080;
+    server_name api.{{.Service}}.example.com;
+
+    location / {
+        proxy_set_header HOST               $host;
+        proxy_set_header X-Forwarded-Proto  $scheme;
+        proxy_set_header X-Real-IP          $remote_addr;
+        proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+
+        proxy_pass http://{{.Service}};
+    }
+}
+`
 )
 
 // check is a simple wrapper to avoid the verbosity of
@@ -66,12 +88,6 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 			upstreamEndpoints = append(upstreamEndpoints, i)
 		}
 
-		fmt.Printf("%+v\n", upstreamEndpoints)
-
-		f, err := os.Create(fmt.Sprintf("%s/%s.service", sitesAvailable, child))
-		check(err)
-		defer f.Close()
-
 		data := Config{
 			Service:           child,
 			UpstreamEndpoints: upstreamEndpoints,
@@ -80,18 +96,36 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 		t.Execute(&renderedTemplate, data)
 		r := rewriteConfig(child)
 		if r == true {
-			reload = true
+			writeOutput(child)
+			// reload = true
 		}
+
+		renderedTemplate.Reset()
 	}
 	if reload == true {
 		reloadNginx()
 	}
 }
 
+// writeOutput will check if the service exists, remove and recreate it
+func writeOutput(service string) {
+	fname := fmt.Sprintf("%s/%s.service", sitesAvailable, service)
+	err := os.Remove(fname)
+	check(err)
+	f, err := os.OpenFile(fname, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0444)
+	check(err)
+	_, err = f.WriteString(renderedTemplate.String())
+	check(err)
+	f.Close()
+}
+
 // rewriteConfig will check if the configuration file needs to be overwritten
 // and if it's overwritten it needs to signal that nginx must be reloaded
 func rewriteConfig(service string) bool {
-	renderedHash := md5.Sum([]byte(renderedTemplate.String()))
+	hasher := md5.New()
+	hasher.Write([]byte(renderedTemplate.String()))
+	renderedHash := hex.EncodeToString(hasher.Sum(nil))
+	fmt.Printf("%+v\n", renderedHash)
 	if val, ok := hashes[service]; ok {
 		if val != renderedHash {
 			hashes[service] = renderedHash
@@ -99,7 +133,7 @@ func rewriteConfig(service string) bool {
 			return false
 		}
 	} else {
-		hashes[child] = renderedHash
+		hashes[service] = renderedHash
 	}
 	return true
 }
@@ -127,24 +161,25 @@ func main() {
 
 	sitesAvailable = fmt.Sprintf("%s/sites-available/", nginxRoot)
 	sitesEnabled = fmt.Sprintf("%s/sites-enabled/", nginxRoot)
-	// reloadCommand := exec.Command("service", "nginx reload")
 
-	if templateFile == "" {
-		t = template.New(defaultService)
+	var err error
+	if len(templateFile) == 0 {
+		t, err = template.New("service-template").Parse(defaultService)
+		check(err)
 	} else {
-		t, err = template.ParseFiles(templateFile)
+		t, err = template.New("service-template").ParseFiles(templateFile)
 		check(err)
 	}
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, os.Kill)
 
-	c, _, err := zk.Connect([]string{zookeeperNodes}, time.Second)
+	zookeeper, _, err := zk.Connect([]string{zookeeperNodes}, time.Second)
 	check(err)
 
 	c := cron.New()
 	c.AddFunc("*/10 * * * *", func() {
-		updateService(c, serviceRoot)
+		updateService(zookeeper, serviceRoot)
 	})
 	c.Start()
 
