@@ -1,6 +1,3 @@
-// +build linux freebsd darwin
-// +build amd64
-
 package main
 
 import (
