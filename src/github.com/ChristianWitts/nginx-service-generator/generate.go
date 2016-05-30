@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"text/template"
 	"time"
@@ -40,6 +41,7 @@ func main() {
 
 	sitesAvailable := fmt.Sprintf("%s/sites-available/", nginxRoot)
 	sitesEnabled := fmt.Sprintf("%s/sites-enabled/", nginxRoot)
+	reloadCommand := exec.Command("service", "nginx reload")
 
 	c, _, err := zk.Connect([]string{zookeeperNodes}, time.Second)
 	check(err)
@@ -80,5 +82,8 @@ func main() {
 		os.Symlink(fmt.Sprintf("%s/%s.service", sitesAvailable, child),
 			fmt.Sprintf("%s/%s.service", sitesEnabled, child))
 	}
+
+	err = reloadCommand.Run()
+	check(err)
 
 }
