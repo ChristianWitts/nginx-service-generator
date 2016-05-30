@@ -12,6 +12,8 @@ import (
 	"github.com/samuel/go-zookeeper/zk"
 )
 
+//go:generate go run scripts/package-templates.go
+
 var (
 	templateFile   string
 	nginxRoot      string
@@ -33,7 +35,7 @@ type Config struct {
 }
 
 func main() {
-	flag.StringVar(&templateFile, "template", "default.tmpl", "nginx template to use")
+	flag.StringVar(&templateFile, "template", nil, "nginx template to use")
 	flag.StringVar(&nginxRoot, "nginx-root", "/etc/nginx/", "The root of the nginx installation")
 	flag.StringVar(&zookeeperNodes, "zookeeper-nodes", "127.0.0.1:2181", "The zookeeper instance to connect to")
 	flag.StringVar(&serviceRoot, "service-root", "/", "The root path with your service metadata")
@@ -43,13 +45,17 @@ func main() {
 	sitesEnabled := fmt.Sprintf("%s/sites-enabled/", nginxRoot)
 	reloadCommand := exec.Command("service", "nginx reload")
 
+	if templateFile == nil {
+		t, err := template.New(defaultService)
+	} else {
+		t, err := template.ParseFiles(templateFile)
+		check(err)
+	}
+
 	c, _, err := zk.Connect([]string{zookeeperNodes}, time.Second)
 	check(err)
 
 	children, _, _, err := c.ChildrenW(serviceRoot)
-	check(err)
-
-	t, err := template.ParseFiles(templateFile)
 	check(err)
 
 	for _, child := range children {
