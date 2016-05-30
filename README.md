@@ -58,3 +58,9 @@ server {
 ```
 
 The resultant configuration file will be soft-linked from `sites-available` to `sites-enabled`, and nginx will get reloaded so that the configuration is up to date.
+
+## TODO
+
+* Cron support to check node information every `n` seconds
+* Add support for removing entire services
+* Hashing of generated services so as not to reload the configuration if nothing has changed
