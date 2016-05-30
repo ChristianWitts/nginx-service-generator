@@ -50,6 +50,7 @@ type Config struct {
 func updateService(zookeeper *zk.Conn, serviceRoot string) {
 	children, _, _, err := zookeeper.ChildrenW(serviceRoot)
 	check(err)
+	reload := false
 
 	for _, child := range children {
 		serviceInstance := strings.Join([]string{serviceRoot, child, "instances"}, "/")
@@ -77,10 +78,13 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 		}
 
 		t.Execute(&renderedTemplate, data)
-		reload := rewriteConfig(child)
-		if reload == true {
-			reloadNginx
+		r := rewriteConfig(child)
+		if r == true {
+			reload = true
 		}
+	}
+	if reload == true {
+		reloadNginx()
 	}
 }
 
