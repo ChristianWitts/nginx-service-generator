@@ -1,3 +1,6 @@
+// +build linux freebsd darwin
+// +build amd64
+
 package main
 
 import (
@@ -12,13 +15,15 @@ import (
 	"github.com/samuel/go-zookeeper/zk"
 )
 
-//go:generate go run scripts/package-templates.go
+//go:generate go run ./scripts/package-templates.go
 
 var (
 	templateFile   string
 	nginxRoot      string
 	zookeeperNodes string
 	serviceRoot    string
+	t              *template.Template
+	err            error
 )
 
 func check(err error) {
@@ -35,7 +40,7 @@ type Config struct {
 }
 
 func main() {
-	flag.StringVar(&templateFile, "template", nil, "nginx template to use")
+	flag.StringVar(&templateFile, "template", "", "nginx template to use")
 	flag.StringVar(&nginxRoot, "nginx-root", "/etc/nginx/", "The root of the nginx installation")
 	flag.StringVar(&zookeeperNodes, "zookeeper-nodes", "127.0.0.1:2181", "The zookeeper instance to connect to")
 	flag.StringVar(&serviceRoot, "service-root", "/", "The root path with your service metadata")
@@ -45,10 +50,10 @@ func main() {
 	sitesEnabled := fmt.Sprintf("%s/sites-enabled/", nginxRoot)
 	reloadCommand := exec.Command("service", "nginx reload")
 
-	if templateFile == nil {
-		t, err := template.New(defaultService)
+	if templateFile == "" {
+		t = template.New(defaultService)
 	} else {
-		t, err := template.ParseFiles(templateFile)
+		t, err = template.ParseFiles(templateFile)
 		check(err)
 	}
 
