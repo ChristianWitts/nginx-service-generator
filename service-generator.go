@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -19,6 +20,12 @@ import (
 
 //go:generate go run ./scripts/package-templates.go
 
+type defaultLogger struct{}
+
+func (defaultLogger) Printf(format string, a ...interface{}) {
+	log.Printf(format, a...)
+}
+
 var (
 	templateFile     string
 	nginxRoot        string
@@ -29,27 +36,7 @@ var (
 	sitesAvailable   string
 	sitesEnabled     string
 	hashes           = make(map[string]string)
-)
-
-const (
-	defaultService = `upstream {{.Service}} {
-    {{range .UpstreamEndpoints}}server {{.}};{{end}}
-}
-
-server {
-    listen 8080;
-    server_name api.{{.Service}}.example.com;
-
-    location / {
-        proxy_set_header HOST               $host;
-        proxy_set_header X-Forwarded-Proto  $scheme;
-        proxy_set_header X-Real-IP          $remote_addr;
-        proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
-
-        proxy_pass http://{{.Service}};
-    }
-}
-`
+	logger           defaultLogger
 )
 
 // check is a simple wrapper to avoid the verbosity of
@@ -125,16 +112,17 @@ func rewriteConfig(service string) bool {
 	hasher := md5.New()
 	hasher.Write([]byte(renderedTemplate.String()))
 	renderedHash := hex.EncodeToString(hasher.Sum(nil))
-	fmt.Printf("%+v\n", renderedHash)
 	if val, ok := hashes[service]; ok {
 		if val != renderedHash {
 			hashes[service] = renderedHash
 		} else {
+			logger.Printf("%+v :: %+v unchanged. Not updating.", service, renderedHash)
 			return false
 		}
 	} else {
 		hashes[service] = renderedHash
 	}
+	logger.Printf("%+v :: %+v changed. Updating.", service, renderedHash)
 	return true
 }
 
