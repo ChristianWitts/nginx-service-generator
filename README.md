@@ -5,6 +5,11 @@ A simple upstream service generator from zookeeper configuration metadata
 
 To dynamically generate nginx upstream proxy configuration based on your zookeeper service discovery meta-data
 
+### Features
+
+* Checks in with Zookeeper every 10 seconds
+* Hashes the configuration so as not to rewrite unless needed
+
 ### Example
 
 Given a zookeeper node information layout as
@@ -61,6 +66,4 @@ The resultant configuration file will be soft-linked from `sites-available` to `
 
 ## TODO
 
-* Cron support to check node information every `n` seconds
 * Add support for removing entire services
-* Hashing of generated services so as not to reload the configuration if nothing has changed
