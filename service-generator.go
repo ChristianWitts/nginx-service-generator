@@ -26,6 +26,13 @@ func (defaultLogger) Printf(format string, a ...interface{}) {
 	log.Printf(format, a...)
 }
 
+// Version information
+var (
+	version    = "0.1.0"
+	buildstamp string
+	githash    string
+)
+
 var (
 	templateFile     string
 	nginxRoot        string
