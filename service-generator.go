@@ -84,7 +84,7 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 		r := rewriteConfig(child)
 		if r == true {
 			writeOutput(child)
-			// reload = true
+			reload = true
 		}
 
 		renderedTemplate.Reset()
