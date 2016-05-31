@@ -10,6 +10,12 @@ To dynamically generate nginx upstream proxy configuration based on your zookeep
 * Checks in with Zookeeper every 10 seconds
 * Hashes the configuration so as not to rewrite unless needed
 
+### Releases
+
+* v0.1
+..* [OSX](bin/releases/0.1/osx/)
+..* [Linux amd_64](bin/releases/0.1/linux_64/)
+
 ### Example
 
 Given a zookeeper node information layout as
