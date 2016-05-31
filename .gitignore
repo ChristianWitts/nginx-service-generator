@@ -25,3 +25,4 @@ _testmain.go
 
 sites-available/
 sites-enabled/
+bin/
