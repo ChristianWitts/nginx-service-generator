@@ -12,9 +12,7 @@ To dynamically generate nginx upstream proxy configuration based on your zookeep
 
 ### Releases
 
-| Version | Linux 64-bit | OSX |
-| ------- | :----------: | :-: |
-| **0.1** | [Linux amd_64](bin/releases/0.1/linux_64/) | [OSX](bin/releases/0.1/osx/) |
+* [Version 0.1.0](releases/tag/v0.1.0)
 
 ### Example
 
