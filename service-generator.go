@@ -84,6 +84,7 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 		r := rewriteConfig(child)
 		if r == true {
 			writeOutput(child)
+			symlink(child)
 			reload = true
 		}
 
@@ -98,7 +99,6 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 func writeOutput(service string) {
 	fname := fmt.Sprintf("%s/%s.service", sitesAvailable, service)
 	err := os.Remove(fname)
-	check(err)
 	f, err := os.OpenFile(fname, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0444)
 	check(err)
 	_, err = f.WriteString(renderedTemplate.String())
@@ -135,7 +135,7 @@ func symlink(service string) {
 
 // reloadNginx is a wrapper to shell out to reload the configuration
 func reloadNginx() {
-	reloadCommand := exec.Command("service", "nginx reload")
+	reloadCommand := exec.Command("sv", "reload", "nginx")
 	err := reloadCommand.Run()
 	check(err)
 }
