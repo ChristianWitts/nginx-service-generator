@@ -16,6 +16,7 @@ import (
 
 	"github.com/robfig/cron"
 	"github.com/samuel/go-zookeeper/zk"
+	"github.com/vharitonsky/iniflags"
 )
 
 //go:generate go run ./scripts/package-templates.go
@@ -28,16 +29,26 @@ func (defaultLogger) Printf(format string, a ...interface{}) {
 
 // Version information
 var (
-	version    = "0.1.0"
+	version    = "0.2.0"
 	buildstamp string
 	githash    string
 )
 
+// Input flags
 var (
-	templateFile     string
-	nginxRoot        string
-	zookeeperNodes   string
-	serviceRoot      string
+	templateFile         = flag.String("template", "", "nginx template to use")
+	nginxRoot            = flag.String("nginx-root", "/etc/nginx/", "The root of the nginx installation")
+	zookeeperNodes       = flag.String("zookeeper-nodes", "127.0.0.1:2181", "The zookeeper instance to connect to")
+	serviceRoot          = flag.String("service-root", "/", "The root path with your service metadata")
+	serviceCheckInterval = flag.Int("service-check-interval", 10, "The frequency of checking for updated service configuration")
+	nginxReloadCommand   = flag.String("nginx-reload-command", "sv reload nginx", "The command that reloads your nginx configuration")
+	fqdnPrefix           = flag.String("fqdn-prefix", "api", "The prefix you're using for your Host header")
+	fqdnPostfix          = flag.String("fqdn-postfix", "example.com", "The postfix you're using for your Host header")
+	printVersion         = flag.Bool("version", false, "Print version information and exit")
+)
+
+// Some globally avilable variables
+var (
 	t                *template.Template
 	renderedTemplate bytes.Buffer
 	sitesAvailable   string
@@ -59,6 +70,7 @@ func check(err error) {
 type Config struct {
 	Service           string
 	UpstreamEndpoints []string
+	HostFQDN          string
 }
 
 // updateService will iterate through the services available in zookeeper
@@ -85,6 +97,7 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 		data := Config{
 			Service:           child,
 			UpstreamEndpoints: upstreamEndpoints,
+			HostFQDN:          strings.Join([]string{*fqdnPrefix, child, *fqdnPostfix}, "."),
 		}
 
 		t.Execute(&renderedTemplate, data)
@@ -135,46 +148,53 @@ func rewriteConfig(service string) bool {
 
 // symlink is a wrapper on os.Symlink
 func symlink(service string) {
-	err := os.Symlink(fmt.Sprintf("%s/%s.service", sitesAvailable, service),
-		fmt.Sprintf("%s/%s.service", sitesEnabled, service))
-	check(err)
+	_, err := os.Lstat(fmt.Sprintf("%s/%s.service", sitesEnabled, service))
+	if err != nil {
+		// Symlink doesn't already exists, lets create it
+		err = os.Symlink(fmt.Sprintf("%s/%s.service", sitesAvailable, service),
+			fmt.Sprintf("%s/%s.service", sitesEnabled, service))
+		check(err)
+	}
 }
 
 // reloadNginx is a wrapper to shell out to reload the configuration
 func reloadNginx() {
-	reloadCommand := exec.Command("sv", "reload", "nginx")
+	command := strings.Split(*nginxReloadCommand, " ")
+	reloadCommand := exec.Command(command[0], command[1:]...)
 	err := reloadCommand.Run()
 	check(err)
 }
 
 func main() {
-	flag.StringVar(&templateFile, "template", "", "nginx template to use")
-	flag.StringVar(&nginxRoot, "nginx-root", "/etc/nginx/", "The root of the nginx installation")
-	flag.StringVar(&zookeeperNodes, "zookeeper-nodes", "127.0.0.1:2181", "The zookeeper instance to connect to")
-	flag.StringVar(&serviceRoot, "service-root", "/", "The root path with your service metadata")
-	flag.Parse()
+	iniflags.Parse()
+	if *printVersion == true {
+		fmt.Printf("service-generator version %s\n", version)
+		fmt.Printf("Build datestamp: %+v\n", buildstamp)
+		fmt.Printf("Git Hash: %+v\n", githash)
+		os.Exit(0)
+	}
 
-	sitesAvailable = fmt.Sprintf("%s/sites-available/", nginxRoot)
-	sitesEnabled = fmt.Sprintf("%s/sites-enabled/", nginxRoot)
+	sitesAvailable = fmt.Sprintf("%s/sites-available/", *nginxRoot)
+	sitesEnabled = fmt.Sprintf("%s/sites-enabled/", *nginxRoot)
 
 	var err error
-	if len(templateFile) == 0 {
+	if len(*templateFile) == 0 {
 		t, err = template.New("service-template").Parse(defaultService)
 		check(err)
 	} else {
-		t, err = template.New("service-template").ParseFiles(templateFile)
+		t, err = template.New("service-template").ParseFiles(*templateFile)
 		check(err)
 	}
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, os.Interrupt, os.Kill)
 
-	zookeeper, _, err := zk.Connect([]string{zookeeperNodes}, time.Second)
+	zookeeper, _, err := zk.Connect([]string{*zookeeperNodes}, time.Second)
 	check(err)
 
 	c := cron.New()
-	c.AddFunc("*/10 * * * *", func() {
-		updateService(zookeeper, serviceRoot)
+	c.AddFunc(fmt.Sprintf("*/%d * * * *", *serviceCheckInterval), func() {
+		updateService(zookeeper, *serviceRoot)
 	})
 	c.Start()
 
