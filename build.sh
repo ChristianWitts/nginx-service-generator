@@ -25,6 +25,7 @@ function help {
 function build {
     consoleLog "Building for version ${1}"
     BUILD_ROOT="bin/releases/${1}"
+    go generate
     export GOARCH=amd64
 
     for TARGET in ${TARGETS[@]};
