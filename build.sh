@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Supported targets
+TARGETS=(darwin dragonfly freebsd linux netbsd openbsd plan9 solaris windows)
+
 function consoleLog {
     echo '['$(date +'%a %Y-%m-%d %H:%M:%S %z')']' "$1"
 }
@@ -22,24 +25,28 @@ function help {
 function build {
     consoleLog "Building for version ${1}"
     BUILD_ROOT="bin/releases/${1}"
-    mkdir -p ${BUILD_ROOT}/{linux_64,darwin}
+    export GOARCH=amd64
 
-    consoleLog "Building Linux amd64 binary"
-    GOOS=linux; GOARCH=amd64 go build \
-        -ldflags="-X main.buildstamp=`date -u '+%Y-%m-%d_%I:%M:%S%p'` -X main.githash=`git rev-parse HEAD` -X main.version=${1}" \
-        -o ${BUILD_ROOT}/linux_64/service-generator
-
-    consoleLog "Building Darwin amd64 binary"
-    GOOS=darwin; GOARCH=amd64 go build \
-        -ldflags="-X main.buildstamp=`date -u '+%Y-%m-%d_%I:%M:%S%p'` -X main.githash=`git rev-parse HEAD` -X main.version=${1}" \
-        -o ${BUILD_ROOT}/darwin/service-generator
+    for TARGET in ${TARGETS[@]};
+    do
+        local TARGET_DIR=${BUILD_ROOT}/${TARGET}_amd64
+        mkdir -p $TARGET_DIR
+        consoleLog "Building $TARGET amd64 binary"
+        export GOOS=$TARGET
+        go build \
+            -ldflags="-X main.buildstamp=`date -u '+%Y-%m-%d_%I:%M:%S%p'` -X main.githash=`git rev-parse HEAD` -X main.version=${1}" \
+            -o ${TARGET_DIR}/service-generator
+    done
 }
 
 function buildRelease {
     consoleLog "Generating releases for version ${1}"
-    RELEASE_ROOT="bin/releases/${1}"
-    (cd $RELEASE_ROOT; tar -czvf "service-generator_darwin-${1}.tar.gz" -C darwin/ service-generator)
-    (cd $RELEASE_ROOT; tar -czvf "service-generator_linux64-${1}.tar.gz" -C linux_64/ service-generator)
+    local RELEASE_ROOT="bin/releases/${1}"
+    for TARGET in ${TARGETS[@]};
+    do
+        (cd $RELEASE_ROOT; tar -czf "service-generator_${TARGET}_amd64-${1}.tar.gz" -C ${TARGET}_amd64/ service-generator)
+        rm -rf ${RELEASE_ROOT}/${TARGET}_amd64/
+    done
 }
 
 VERSION="-1"
