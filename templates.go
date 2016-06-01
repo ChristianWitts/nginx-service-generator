@@ -7,7 +7,7 @@ defaultService = `upstream {{.Service}} {
 
 server {
     listen 8080;
-    server_name api.{{.Service}}.example.com;
+    server_name {{.HostFQDN}};
 
     location / {
         proxy_set_header HOST               $host;
