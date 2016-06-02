@@ -29,7 +29,7 @@ func (defaultLogger) Printf(format string, a ...interface{}) {
 
 // Version information
 var (
-	version    = "0.2.0"
+	version    = "0.2.1"
 	buildstamp string
 	githash    string
 )
@@ -44,6 +44,7 @@ var (
 	nginxReloadCommand   = flag.String("nginx-reload-command", "sv reload nginx", "The command that reloads your nginx configuration")
 	fqdnPrefix           = flag.String("fqdn-prefix", "api", "The prefix you're using for your Host header")
 	fqdnPostfix          = flag.String("fqdn-postfix", "example.com", "The postfix you're using for your Host header")
+	listenPort           = flag.Int("listen-port", 80, "The port nginx will listen on")
 	printVersion         = flag.Bool("version", false, "Print version information and exit")
 )
 
@@ -71,6 +72,7 @@ type Config struct {
 	Service           string
 	UpstreamEndpoints []string
 	HostFQDN          string
+	ListenPort        int
 }
 
 // updateService will iterate through the services available in zookeeper
@@ -98,6 +100,7 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 			Service:           child,
 			UpstreamEndpoints: upstreamEndpoints,
 			HostFQDN:          strings.Join([]string{*fqdnPrefix, child, *fqdnPostfix}, "."),
+			ListenPort:        *listenPort,
 		}
 
 		t.Execute(&renderedTemplate, data)
