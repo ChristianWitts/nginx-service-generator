@@ -6,7 +6,7 @@ defaultService = `upstream {{.Service}} {
 }
 
 server {
-    listen 8080;
+    listen {{.ListenPort}};
     server_name {{.HostFQDN}};
 
     location / {
