@@ -29,7 +29,7 @@ func (defaultLogger) Printf(format string, a ...interface{}) {
 
 // Version information
 var (
-	version    = "0.2.1"
+	version    = "0.3.0"
 	buildstamp string
 	githash    string
 )
@@ -54,7 +54,6 @@ var (
 	renderedTemplate bytes.Buffer
 	sitesAvailable   string
 	sitesEnabled     string
-	hashes           = make(map[string]string)
 	logger           defaultLogger
 )
 
@@ -74,6 +73,16 @@ type Config struct {
 	HostFQDN          string
 	ListenPort        int
 }
+
+// Service defines the service name, current configuration and template hash,
+// as well as if it is currently active which is used to enable/disable the VHost
+type Service struct {
+	Config Config
+	Active bool
+	Hash   string
+}
+
+var services = make(map[string]Service)
 
 // updateService will iterate through the services available in zookeeper
 // and generate a new template for them.
@@ -104,7 +113,7 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 		}
 
 		t.Execute(&renderedTemplate, data)
-		r := rewriteConfig(child)
+		r := rewriteConfig(child, data)
 		if r == true {
 			writeOutput(child)
 			symlink(child)
@@ -131,32 +140,38 @@ func writeOutput(service string) {
 
 // rewriteConfig will check if the configuration file needs to be overwritten
 // and if it's overwritten it needs to signal that nginx must be reloaded
-func rewriteConfig(service string) bool {
+func rewriteConfig(service string, config Config) bool {
 	hasher := md5.New()
 	hasher.Write([]byte(renderedTemplate.String()))
 	renderedHash := hex.EncodeToString(hasher.Sum(nil))
-	if val, ok := hashes[service]; ok {
-		if val != renderedHash {
-			hashes[service] = renderedHash
-		} else {
+
+	if val, ok := services[service]; ok {
+		if val.Hash == renderedHash {
 			logger.Printf("%+v :: %+v unchanged. Not updating.", service, renderedHash)
 			return false
 		}
-	} else {
-		hashes[service] = renderedHash
 	}
-	logger.Printf("%+v :: %+v changed. Updating.", service, renderedHash)
+
+	services[service] = Service{
+		Config: config,
+		Hash:   renderedHash,
+		Active: len(config.UpstreamEndpoints) > 0,
+	}
+	logger.Printf("%+v :: %+v changed. Updating", service, renderedHash)
 	return true
 }
 
 // symlink is a wrapper on os.Symlink
 func symlink(service string) {
 	_, err := os.Lstat(fmt.Sprintf("%s/%s.service", sitesEnabled, service))
-	if err != nil {
+	if err != nil && services[service].Active {
 		// Symlink doesn't already exists, lets create it
 		err = os.Symlink(fmt.Sprintf("%s/%s.service", sitesAvailable, service),
 			fmt.Sprintf("%s/%s.service", sitesEnabled, service))
 		check(err)
+	} else {
+		// Symlink exists, and the service is no longer active
+		os.Remove(fmt.Sprintf("%s/%s.service", sitesEnabled, service))
 	}
 }
 
