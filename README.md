@@ -30,7 +30,7 @@ upstream {{.Service}} {
 }
 
 server {
-    listen 8080;
+    listen {{.ListenPort}};
     server_name {{.HostFQDN}};
 
     location / {
@@ -53,6 +53,7 @@ service-check-interval = 10
 nginx-reload-command = sv reload nginx
 fqdn-prefix = api
 fqdn-postfix = example.com
+listen-port = 80
 ```
 running the following command
 ```
@@ -65,7 +66,7 @@ upstream my-service-name {
 }
 
 server {
-    listen 8080;
+    listen 80;
     server_name api.my-service-name.example.com;
 
     location / {
@@ -90,7 +91,7 @@ upstream my-service-name {
 }
 
 server {
-    listen 8080;
+    listen 80;
     server_name api.my-service-name.example2.com;
 
     location / {
