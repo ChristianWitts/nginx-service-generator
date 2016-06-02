@@ -10,9 +10,12 @@ To dynamically generate nginx upstream proxy configuration based on your zookeep
 * Checks in with Zookeeper every 10 seconds
 * Hashes the configuration so as not to rewrite unless needed
 * Can use a configuration file, as well as optionally overriding parameters via the command line
+* Hot configuration file reloading via `kill -s SIGHUP <PID>` or supplying the `-configUpdateInterval` flag with a duration, ie. `-configUpdateInterval=30s`
+* Removes services that have no end-points configured
 
 ### Releases
 
+* [Version 0.3.0](releases/tag/v0.3.0)
 * [Version 0.2.0](releases/tag/v0.2.0)
 * [Version 0.1.0](releases/tag/v0.1.0)
 
@@ -109,6 +112,11 @@ The resultant configuration file will be soft-linked from `sites-available` to `
 
 This will continue running in the background, at the interval specified by `service-check-interval` in the configuration file, or as a command line parameter.
 
-## TODO
+You can create your configuration file using the `-dumpflags` command line parameter.
+```
+./service-generator -dumpflags > default.config
+```
 
-* Add support for removing entire services
+## License
+
+[2-clause BSD](LICENSE)
