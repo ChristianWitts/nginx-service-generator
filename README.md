@@ -15,6 +15,7 @@ To dynamically generate nginx upstream proxy configuration based on your zookeep
 
 ### Releases
 
+* [Version 0.3.1](releases/tag/v0.3.1)
 * [Version 0.3.0](releases/tag/v0.3.0)
 * [Version 0.2.0](releases/tag/v0.2.0)
 * [Version 0.1.0](releases/tag/v0.1.0)
@@ -54,13 +55,13 @@ zookeeper-nodes = 127.0.0.1:2181
 service-root = /services
 service-check-interval = 10
 nginx-reload-command = sv reload nginx
-fqdn-prefix = api
+fqdn-subdomain = api
 fqdn-postfix = example.com
 listen-port = 80
 ```
 running the following command
 ```
-./service-generator
+./service-generator -config example.config
 ```
 will yield a service like
 ```
@@ -70,7 +71,7 @@ upstream my-service-name {
 
 server {
     listen 80;
-    server_name api.my-service-name.example.com;
+    server_name my-service-name.api.example.com;
 
     location / {
         proxy_set_header HOST               $host;
@@ -85,7 +86,7 @@ server {
 
 If you wanted to override one or more of your configuration file flags, you can optionally specify a command line parameter, such as
 ```
-./service-generator -fqdn-postfix example2.com
+./service-generator -config example.config -fqdn-postfix example2.com
 
 # Will yield a service file looking like
 
@@ -95,7 +96,7 @@ upstream my-service-name {
 
 server {
     listen 80;
-    server_name api.my-service-name.example2.com;
+    server_name my-service-name.api.example2.com;
 
     location / {
         proxy_set_header HOST               $host;
