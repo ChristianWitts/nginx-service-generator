@@ -29,7 +29,7 @@ func (defaultLogger) Printf(format string, a ...interface{}) {
 
 // Version information
 var (
-	version    = "0.3.0"
+	version    = "0.3.1"
 	buildstamp string
 	githash    string
 )
@@ -42,7 +42,7 @@ var (
 	serviceRoot          = flag.String("service-root", "/", "The root path with your service metadata")
 	serviceCheckInterval = flag.Int("service-check-interval", 10, "The frequency of checking for updated service configuration")
 	nginxReloadCommand   = flag.String("nginx-reload-command", "sv reload nginx", "The command that reloads your nginx configuration")
-	fqdnPrefix           = flag.String("fqdn-prefix", "api", "The prefix you're using for your Host header")
+	fqdnSubdomain        = flag.String("fqdn-subdomain", "api", "The prefix you're using for your Host header")
 	fqdnPostfix          = flag.String("fqdn-postfix", "example.com", "The postfix you're using for your Host header")
 	listenPort           = flag.Int("listen-port", 80, "The port nginx will listen on")
 	printVersion         = flag.Bool("version", false, "Print version information and exit")
@@ -108,7 +108,7 @@ func updateService(zookeeper *zk.Conn, serviceRoot string) {
 		data := Config{
 			Service:           child,
 			UpstreamEndpoints: upstreamEndpoints,
-			HostFQDN:          strings.Join([]string{*fqdnPrefix, child, *fqdnPostfix}, "."),
+			HostFQDN:          strings.Join([]string{child, *fqdnSubdomain, *fqdnPostfix}, "."),
 			ListenPort:        *listenPort,
 		}
 
